@@ -1,5 +1,5 @@
 {
-  "name": "EquiFlow - Real-Time Equity Dashboard",
-  "description": "A high-performance equity dashboard featuring real-time simulated WebSocket data streaming, live SMA-20 calculation, volatility alerts, and AI-powered technical analysis.",
+  "name": "EquiFlow",
+  "description": "A warm dashboard for a simulated equity tape, with an SMA-20, volatility notes, and an optional Gemini read served by a Cloudflare Worker.",
   "requestFramePermissions": []
 }

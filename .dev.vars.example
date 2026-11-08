@@ -1,0 +1,5 @@
+# Copy to .dev.vars for `npm run dev`. .dev.vars is gitignored.
+# Leave this blank to use the dashboard without a written read.
+# A real key is created in Google AI Studio: https://aistudio.google.com/apikey
+# Deployed Workers use `npx wrangler secret put GEMINI_API_KEY` instead of this file.
+GEMINI_API_KEY=
