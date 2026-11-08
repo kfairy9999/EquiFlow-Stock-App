@@ -12,5 +12,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["worker/**/*.ts", "lib/**/*.ts", "types.ts", "worker-configuration.d.ts"]
+  "include": ["worker/**/*.ts", "lib/**/*.ts", "types.ts", "worker-configuration.d.ts"],
+  "exclude": ["**/*.test.ts"]
 }
