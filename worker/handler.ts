@@ -1,4 +1,4 @@
-import { buildAnalysisPrompt, buildGeminiRequest, extractAnswerText } from "./gemini";
+import { GROK_MODEL, buildGrokMessages, buildGrokRequest, extractAnswerText } from "./grok";
 import { MAX_BODY_BYTES, parseAnalyzeBody } from "./validate";
 
 export interface RateLimiter {
@@ -6,7 +6,7 @@ export interface RateLimiter {
 }
 
 export interface ApiEnv {
-  GEMINI_API_KEY?: string;
+  XAI_API_KEY?: string;
   ANALYSIS_LIMITER: RateLimiter;
 }
 
@@ -16,10 +16,10 @@ const JSON_HEADERS = {
   "x-content-type-options": "nosniff",
 };
 
-export async function handleApiRequest(request: Request, env: ApiEnv, geminiFetch: typeof fetch = fetch): Promise<Response> {
+export async function handleApiRequest(request: Request, env: ApiEnv, modelFetch: typeof fetch = fetch): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname === "/api/health") return health(request, env);
-  if (url.pathname === "/api/analyze") return analyze(request, env, geminiFetch);
+  if (url.pathname === "/api/analyze") return analyze(request, env, modelFetch);
   return json({ error: "That path is not part of EquiFlow." }, 404);
 }
 
@@ -27,13 +27,13 @@ function health(request: Request, env: ApiEnv): Response {
   if (request.method !== "GET") return methodNotAllowed("GET");
   return json({
     ok: true,
-    analysisConfigured: isConfigured(env.GEMINI_API_KEY),
-    model: "gemini-3-flash-preview",
+    analysisConfigured: isConfigured(env.XAI_API_KEY),
+    model: GROK_MODEL,
     prices: "simulated-in-browser",
   });
 }
 
-async function analyze(request: Request, env: ApiEnv, geminiFetch: typeof fetch): Promise<Response> {
+async function analyze(request: Request, env: ApiEnv, modelFetch: typeof fetch): Promise<Response> {
   if (request.method !== "POST") return methodNotAllowed("POST");
 
   const limited = await limitRequest(request, env.ANALYSIS_LIMITER);
@@ -46,11 +46,10 @@ async function analyze(request: Request, env: ApiEnv, geminiFetch: typeof fetch)
     );
   }
 
-  if (!isConfigured(env.GEMINI_API_KEY)) {
+  if (!isConfigured(env.XAI_API_KEY)) {
     return json(
       {
-        error:
-          "A written read needs a Gemini key on the server. The sample tape keeps running without one.",
+        error: "A written read needs an xAI key on the server. The sample tape keeps running without one.",
       },
       503,
     );
@@ -81,45 +80,44 @@ async function analyze(request: Request, env: ApiEnv, geminiFetch: typeof fetch)
   const parsed = parseAnalyzeBody(parsedJson);
   if (!parsed.ok) return json({ error: parsed.error }, 400);
 
-  const prompt = buildAnalysisPrompt(parsed.value);
-  const gemini = buildGeminiRequest(prompt);
-  const headers = new Headers(gemini.init.headers);
-  headers.set("x-goog-api-key", env.GEMINI_API_KEY ?? "");
+  const grok = buildGrokRequest(buildGrokMessages(parsed.value));
+  const headers = new Headers(grok.init.headers);
+  headers.set("authorization", `Bearer ${env.XAI_API_KEY ?? ""}`);
 
   let upstream: Response;
   try {
-    upstream = await geminiFetch(gemini.url, { ...gemini.init, headers });
+    upstream = await modelFetch(grok.url, { ...grok.init, headers });
   } catch (error) {
-    console.error(JSON.stringify({ message: "gemini_network_error", error: errorText(error) }));
-    return json({ error: "Gemini could not be reached. The tape is still here." }, 502);
+    console.error(JSON.stringify({ message: "grok_network_error", error: errorText(error) }));
+    return json({ error: "Grok could not be reached. The tape is still here." }, 502);
   }
 
   if (!upstream.ok) {
-    console.error(JSON.stringify({ message: "gemini_http_error", upstreamStatus: upstream.status }));
+    console.error(JSON.stringify({ message: "grok_http_error", upstreamStatus: upstream.status }));
     if (upstream.status === 429) {
-      return json({ error: "Gemini is busy right now. Wait a moment, then ask again." }, 503);
+      return json({ error: "Grok is busy right now. Wait a moment, then ask again." }, 503);
     }
-    return json({ error: "Gemini could not write a read just now. The tape is still here." }, 502);
+    return json({ error: "Grok could not write a read just now. The tape is still here." }, 502);
   }
 
   let payload: unknown;
   try {
     payload = await upstream.json();
   } catch (error) {
-    console.error(JSON.stringify({ message: "gemini_parse_error", error: errorText(error) }));
-    return json({ error: "Gemini replied in a shape EquiFlow could not read." }, 502);
+    console.error(JSON.stringify({ message: "grok_parse_error", error: errorText(error) }));
+    return json({ error: "Grok replied in a shape EquiFlow could not read." }, 502);
   }
 
   const analysis = extractAnswerText(payload);
   if (!analysis) {
-    console.error(JSON.stringify({ message: "gemini_empty_answer" }));
-    return json({ error: "Gemini returned an empty note. Try once more." }, 502);
+    console.error(JSON.stringify({ message: "grok_empty_answer" }));
+    return json({ error: "Grok returned an empty note. Try once more." }, 502);
   }
 
   console.log(JSON.stringify({ message: "analyze_ok", ticker: parsed.value.ticker, status: 200 }));
   return json({
     analysis,
-    model: "gemini-3-flash-preview",
+    model: GROK_MODEL,
     simulated: true,
   });
 }

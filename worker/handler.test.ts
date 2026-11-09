@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { extractAnswerText, buildAnalysisPrompt, buildGeminiRequest, GEMINI_MODEL } from "./gemini";
+import { GROK_ENDPOINT, GROK_MODEL, buildGrokMessages, buildGrokRequest, extractAnswerText } from "./grok";
 import { handleApiRequest, type RateLimiter } from "./handler";
 import { parseAnalyzeBody } from "./validate";
 
-const KEY = "test-gemini-key-value-0123456789";
+const KEY = "xai-test-key-value-0123456789";
 
 function limiter(success: boolean): RateLimiter {
   return { limit: vi.fn(async () => ({ success })) };
@@ -46,37 +46,44 @@ describe("parseAnalyzeBody", () => {
   });
 });
 
-describe("gemini helpers", () => {
+describe("grok helpers", () => {
   it("tells the model the tape is simulated and is not advice", () => {
-    const prompt = buildAnalysisPrompt(sampleBody);
-    expect(prompt).toContain("simulated");
-    expect(prompt).toContain("not investment advice");
-    expect(prompt).toContain("AAPL");
-    expect(prompt).toContain("150.25");
+    const messages = buildGrokMessages(sampleBody);
+    const system = messages.find((message) => message.role === "system")?.content ?? "";
+    const user = messages.find((message) => message.role === "user")?.content ?? "";
+    expect(system).toContain("simulated");
+    expect(system).toContain("not investment advice");
+    expect(user).toContain("AAPL");
+    expect(user).toContain("150.25");
   });
 
-  it("asks Gemini 3 Flash at a low thinking level and keeps the key out of the body", () => {
-    const request = buildGeminiRequest("hello");
-    expect(request.url).toContain(GEMINI_MODEL);
-    const body = String(request.init.body);
-    expect(body).toContain('"thinkingLevel":"low"');
-    expect(body).not.toContain("api");
-    expect(body).not.toContain(KEY);
+  it("calls the OpenAI-compatible chat completions endpoint for grok-4.7 and keeps the key out of the body", () => {
+    const request = buildGrokRequest(buildGrokMessages(sampleBody));
+    expect(request.url).toBe(GROK_ENDPOINT);
+    const body = JSON.parse(String(request.init.body)) as { model: string; stream: boolean; messages: unknown[] };
+    expect(body.model).toBe(GROK_MODEL);
+    expect(body.stream).toBe(false);
+    expect(body.messages).toHaveLength(2);
+    expect(JSON.stringify(body)).not.toContain(KEY);
+    expect(JSON.stringify(request.init.headers)).not.toContain(KEY);
   });
 
-  it("skips thought parts and blank parts", () => {
+  it("reads the assistant content and ignores reasoning text", () => {
     expect(
       extractAnswerText({
-        candidates: [
+        choices: [
           {
-            content: {
-              parts: [{ text: "thinking out loud", thought: true }, { text: "\n" }, { text: "Price is above the average." }],
+            message: {
+              role: "assistant",
+              content: "The simulated price is sitting just above its average.",
+              reasoning_content: "hidden reasoning that should not be shown",
             },
           },
         ],
       }),
-    ).toBe("Price is above the average.");
-    expect(extractAnswerText({ candidates: [] })).toBeNull();
+    ).toBe("The simulated price is sitting just above its average.");
+    expect(extractAnswerText({ choices: [{ message: { content: "   " } }] })).toBeNull();
+    expect(extractAnswerText({ choices: [] })).toBeNull();
   });
 });
 
@@ -85,73 +92,61 @@ describe("handleApiRequest", () => {
     const open = await handleApiRequest(new Request("https://equiflow.test/api/health"), {
       ANALYSIS_LIMITER: limiter(true),
     });
-    expect(await open.json()).toMatchObject({ ok: true, analysisConfigured: false });
+    expect(await open.json()).toMatchObject({ ok: true, analysisConfigured: false, model: GROK_MODEL });
 
     const ready = await handleApiRequest(new Request("https://equiflow.test/api/health"), {
-      GEMINI_API_KEY: KEY,
+      XAI_API_KEY: KEY,
       ANALYSIS_LIMITER: limiter(true),
     });
-    expect(await ready.json()).toMatchObject({ analysisConfigured: true, prices: "simulated-in-browser" });
+    expect(await ready.json()).toMatchObject({ analysisConfigured: true, model: GROK_MODEL, prices: "simulated-in-browser" });
   });
 
-  it("does not call Gemini when the limiter says no or the key is missing", async () => {
-    const geminiFetch = vi.fn<typeof fetch>();
-    const limited = await handleApiRequest(
-      post(sampleBody),
-      { GEMINI_API_KEY: KEY, ANALYSIS_LIMITER: limiter(false) },
-      geminiFetch,
-    );
+  it("does not call xAI when the limiter says no or the key is missing", async () => {
+    const modelFetch = vi.fn<typeof fetch>();
+    const limited = await handleApiRequest(post(sampleBody), { XAI_API_KEY: KEY, ANALYSIS_LIMITER: limiter(false) }, modelFetch);
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toBe("60");
 
-    const unconfigured = await handleApiRequest(
-      post(sampleBody),
-      { ANALYSIS_LIMITER: limiter(true) },
-      geminiFetch,
-    );
+    const unconfigured = await handleApiRequest(post(sampleBody), { ANALYSIS_LIMITER: limiter(true) }, modelFetch);
     expect(unconfigured.status).toBe(503);
-    expect(geminiFetch).not.toHaveBeenCalled();
+    expect(modelFetch).not.toHaveBeenCalled();
   });
 
-  it("sends the key as a header and returns only the answer text", async () => {
-    const geminiFetch = vi.fn<typeof fetch>(async () =>
+  it("sends the key as a Bearer token and returns only the answer text", async () => {
+    const modelFetch = vi.fn<typeof fetch>(async () =>
       Response.json({
-        candidates: [
+        id: "chatcmpl-test",
+        object: "chat.completion",
+        choices: [
           {
-            content: {
-              parts: [
-                { thought: true, text: "hidden reasoning" },
-                { text: "The simulated price is sitting just above its average." },
-              ],
+            message: {
+              role: "assistant",
+              content: "The simulated price is sitting just above its average.",
+              reasoning_content: "do not show this",
             },
           },
         ],
       }),
     );
-    const response = await handleApiRequest(
-      post(sampleBody),
-      { GEMINI_API_KEY: KEY, ANALYSIS_LIMITER: limiter(true) },
-      geminiFetch,
-    );
+    const response = await handleApiRequest(post(sampleBody), { XAI_API_KEY: KEY, ANALYSIS_LIMITER: limiter(true) }, modelFetch);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       analysis: "The simulated price is sitting just above its average.",
-      model: GEMINI_MODEL,
+      model: GROK_MODEL,
       simulated: true,
     });
-    const [, init] = geminiFetch.mock.calls[0] ?? [];
+    const [url, init] = modelFetch.mock.calls[0] ?? [];
+    expect(url).toBe(GROK_ENDPOINT);
     const headers = new Headers(init?.headers);
-    expect(headers.get("x-goog-api-key")).toBe(KEY);
+    expect(headers.get("authorization")).toBe(`Bearer ${KEY}`);
     expect(String(init?.body)).not.toContain(KEY);
+    const sent = JSON.parse(String(init?.body)) as { model: string };
+    expect(sent.model).toBe("grok-4.7");
   });
 
   it("turns an upstream failure into a calm error and does not leak the key", async () => {
-    const geminiFetch = vi.fn<typeof fetch>(async () => new Response("nope " + KEY, { status: 500 }));
-    const response = await handleApiRequest(
-      post(sampleBody),
-      { GEMINI_API_KEY: KEY, ANALYSIS_LIMITER: limiter(true) },
-      geminiFetch,
-    );
+    const modelFetch = vi.fn<typeof fetch>(async () => new Response("nope " + KEY, { status: 500 }));
+    const response = await handleApiRequest(post(sampleBody), { XAI_API_KEY: KEY, ANALYSIS_LIMITER: limiter(true) }, modelFetch);
     expect(response.status).toBe(502);
     const body = await response.json();
     expect(JSON.stringify(body)).not.toContain(KEY);

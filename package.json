@@ -2,7 +2,7 @@
   "name": "equiflow",
   "version": "1.0.0",
   "private": true,
-  "description": "A warm equity dashboard that simulates a live tape in the browser, computes an SMA-20 and volatility notes, and asks Gemini for a short read through a Cloudflare Worker.",
+  "description": "A warm equity dashboard that simulates a live tape in the browser, computes an SMA-20 and volatility notes, and asks Grok for a short read through a Cloudflare Worker.",
   "license": "MIT",
   "author": "Kevin",
   "type": "module",

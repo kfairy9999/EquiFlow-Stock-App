@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..", "dist");
-const forbidden = ["GEMINI_API_KEY", "generativelanguage.googleapis.com", "@google/genai", "AIza"];
+const forbidden = ["XAI_API_KEY", "api.x.ai", "GEMINI_API_KEY", "generativelanguage.googleapis.com", "@google/genai", "AIza"];
 
 async function filesIn(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -29,4 +29,4 @@ if (hits.length > 0) {
   process.exit(1);
 }
 
-console.log(`Checked ${files.length} built files. No model key or Gemini endpoint in the client bundle.`);
+console.log(`Checked ${files.length} built files. No model key or model endpoint in the client bundle.`);

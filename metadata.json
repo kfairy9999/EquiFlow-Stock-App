@@ -1,5 +1,5 @@
 {
   "name": "EquiFlow",
-  "description": "A warm dashboard for a simulated equity tape, with an SMA-20, volatility notes, and an optional Gemini read served by a Cloudflare Worker.",
+  "description": "A warm dashboard for a simulated equity tape, with an SMA-20, volatility notes, and an optional Grok read served by a Cloudflare Worker.",
   "requestFramePermissions": []
 }

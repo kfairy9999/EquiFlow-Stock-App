@@ -22,10 +22,10 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
   },
-  // The Gemini key is a secret, never a var. Set it with `wrangler secret put GEMINI_API_KEY`.
+  // The xAI key is a secret, never a var. Set it with `wrangler secret put XAI_API_KEY`.
   // Local development reads it from .dev.vars. An empty or short value leaves analysis unconfigured.
   "secrets": {
-    "required": ["GEMINI_API_KEY"]
+    "required": ["XAI_API_KEY"]
   },
   // 8 analysis calls per 60 seconds, per key, per Cloudflare location.
   // The binding is approximate. See the README.

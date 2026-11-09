@@ -28,8 +28,8 @@ export function AnalysisPanel({
         : offline
           ? "The written read needs the small API beside this page. The chart does not. Start both with npm run dev, then check again."
           : configured === false
-            ? "Add a Gemini key on the server when you want a written read. Watching the tape does not need one."
-            : "When you ask, Gemini reads the latest simulated prices and any notes, then describes them in a few sentences. It is a sketch of this tape, not advice.";
+            ? "Add an xAI key on the server when you want a written read. Watching the tape does not need one."
+            : "When you ask, Grok reads the latest simulated prices and any notes, then describes them in a few sentences. It is a sketch of this tape, not advice.";
 
   return (
     <section className="rounded-3xl border border-line bg-card p-5 shadow-[0_16px_36px_-24px_rgba(80,48,20,0.45)] sm:p-6" aria-labelledby="read-heading">
@@ -40,7 +40,7 @@ export function AnalysisPanel({
             A short read
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-            Gemini 3 Flash looks at this simulated tape. The key stays on the server. The words are not a recommendation.
+            Grok 4.7 looks at this simulated tape. The key stays on the server. The words are not a recommendation.
           </p>
         </div>
         <button

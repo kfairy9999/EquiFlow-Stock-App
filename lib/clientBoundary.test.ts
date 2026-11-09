@@ -3,7 +3,14 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = path.resolve(import.meta.dirname, "..");
-const forbidden = ["GEMINI_API_KEY", "generativelanguage.googleapis.com", "@google/genai", "process.env.API_KEY"];
+const forbidden = [
+  "XAI_API_KEY",
+  "api.x.ai",
+  "GEMINI_API_KEY",
+  "generativelanguage.googleapis.com",
+  "@google/genai",
+  "process.env.API_KEY",
+];
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((name) => {
@@ -14,7 +21,7 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("client boundary", () => {
-  it("keeps the model key and the Gemini endpoint off the client", () => {
+  it("keeps the model key and the model endpoint off the client", () => {
     const files = [
       ...sourceFiles(path.join(root, "components")),
       ...sourceFiles(path.join(root, "services")),
