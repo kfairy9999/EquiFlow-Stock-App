@@ -1,98 +1,108 @@
-import React, { useMemo } from 'react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Line
-} from 'recharts';
-import { PricePoint } from '../types';
+import { useMemo } from "react";
+import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { formatClock, formatMoney } from "../lib/format";
+import type { PricePoint } from "../types";
 
 interface PriceChartProps {
   data: PricePoint[];
-  color?: string;
+  ticker: string;
 }
 
-const PriceChart: React.FC<PriceChartProps> = ({ data, color = "#10b981" }) => {
-  // Optimization: Only render the last N points to keep the chart performant
-  const visibleData = useMemo(() => {
-    return data.slice(-100); 
-  }, [data]);
+export function PriceChart({ data, ticker }: PriceChartProps) {
+  const visible = useMemo(() => data.slice(-180), [data]);
+  const domain = useMemo(() => {
+    if (visible.length === 0) return [0, 1] as [number, number];
+    const prices = visible.flatMap((point) => (point.sma20 === null ? [point.price] : [point.price, point.sma20]));
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const pad = Math.max((max - min) * 0.15, 0.05);
+    return [min - pad, max + pad] as [number, number];
+  }, [visible]);
 
-  const minPrice = useMemo(() => {
-    if (visibleData.length === 0) return 0;
-    return Math.min(...visibleData.map(d => d.price)) * 0.995;
-  }, [visibleData]);
-
-  const maxPrice = useMemo(() => {
-    if (visibleData.length === 0) return 0;
-    return Math.max(...visibleData.map(d => d.price)) * 1.005;
-  }, [visibleData]);
-
-  if (visibleData.length === 0) {
-    return <div className="h-full flex items-center justify-center text-gray-500">Waiting for data...</div>;
+  if (visible.length < 2) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center" role="status">
+        <p className="font-display text-2xl text-ink">The tape is waking up</p>
+        <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">
+          The first simulated prices for {ticker} arrive in about a second. Nothing here is a live quote.
+        </p>
+      </div>
+    );
   }
 
+  const origin = visible[0]?.timestamp ?? 0;
+  const latest = visible[visible.length - 1];
+  const summary = latest
+    ? `${ticker} simulated chart. Latest price ${formatMoney(latest.price)}. ${
+        latest.sma20 === null ? "The 20-price average is not ready yet." : `20-price average ${formatMoney(latest.sma20)}.`
+      }`
+    : `${ticker} chart`;
+
   return (
-    <div className="w-full h-full select-none">
+    <div className="h-full w-full" role="img" aria-label={summary}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
-          data={visibleData}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-        >
+        <AreaChart data={visible} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
           <defs>
-            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            <linearGradient id="priceFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#8d4324" stopOpacity={0.28} />
+              <stop offset="100%" stopColor="#8d4324" stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-          <XAxis 
-            dataKey="timestamp" 
-            tickFormatter={(ts) => new Date(ts).toLocaleTimeString([], {minute: '2-digit', second:'2-digit'})}
-            stroke="#9ca3af"
-            tick={{fontSize: 12}}
-            minTickGap={50}
+          <CartesianGrid stroke="#e3d5c4" vertical={false} />
+          <XAxis
+            dataKey="timestamp"
+            tickFormatter={(value: number) => `${Math.max(0, Math.round((Number(value) - origin) / 1000))}s`}
+            minTickGap={72}
+            stroke="#65584b"
+            tick={{ fill: "#65584b", fontSize: 12 }}
+            tickLine={false}
+            axisLine={false}
           />
-          <YAxis 
-            domain={[minPrice, maxPrice]} 
-            stroke="#9ca3af"
-            tick={{fontSize: 12}}
-            width={60}
-            tickFormatter={(val) => val.toFixed(2)}
+          <YAxis
+            domain={domain}
+            stroke="#65584b"
+            tick={{ fill: "#65584b", fontSize: 12 }}
+            tickFormatter={(value: number) => value.toFixed(2)}
+            width={64}
+            tickLine={false}
+            axisLine={false}
           />
-          <Tooltip 
-            contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', color: '#f3f4f6' }}
-            labelFormatter={(ts) => new Date(ts).toLocaleTimeString()}
-            itemStyle={{ color: '#f3f4f6' }}
-            formatter={(value: number) => [value.toFixed(2), '']}
+          <Tooltip
+            contentStyle={{
+              background: "#fffdf8",
+              border: "1px solid #e3d5c4",
+              borderRadius: 16,
+              color: "#2c241c",
+            }}
+            labelFormatter={(value) => formatClock(Number(value))}
+            formatter={(value, name) => {
+              const amount = typeof value === "number" ? formatMoney(value) : String(value ?? "");
+              return [amount, name === "sma20" ? "SMA-20" : "Price"];
+            }}
           />
-          <Area 
-            type="monotone" 
-            dataKey="price" 
-            stroke={color} 
-            fillOpacity={1} 
-            fill="url(#colorPrice)" 
+          <Area
+            type="monotone"
+            dataKey="price"
+            name="price"
+            stroke="#8d4324"
+            fill="url(#priceFill)"
+            strokeWidth={2.4}
             isAnimationActive={false}
-            strokeWidth={2}
+            dot={false}
           />
-          <Line 
-            type="monotone" 
-            dataKey="sma20" 
-            stroke="#f59e0b" 
-            dot={false} 
+          <Line
+            type="monotone"
+            dataKey="sma20"
+            name="sma20"
+            stroke="#24577f"
             strokeWidth={2}
             strokeDasharray="5 5"
+            dot={false}
+            connectNulls={false}
             isAnimationActive={false}
-            name="SMA (20)"
           />
         </AreaChart>
       </ResponsiveContainer>
     </div>
   );
-};
-
-export default React.memo(PriceChart);
+}

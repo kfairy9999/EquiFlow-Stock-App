@@ -1,0 +1,6 @@
+# Copy to .dev.vars for `npm run dev`. .dev.vars is gitignored.
+# Leave this blank to use the dashboard without a written read.
+# Create a key in the xAI console, then paste it here.
+# Docs: https://docs.x.ai/developers/model-capabilities/legacy/chat-completions
+# Deployed Workers use `npx wrangler secret put XAI_API_KEY` instead of this file.
+XAI_API_KEY=

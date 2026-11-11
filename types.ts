@@ -3,6 +3,10 @@ export interface PricePoint {
   price: number;
   sma20: number | null;
   volume: number;
+  open: number;
+  high: number;
+  low: number;
+  cumulativeVolume: number;
 }
 
 export interface MarketStats {
@@ -18,16 +22,16 @@ export interface MarketStats {
 export interface VolatilityAlert {
   id: string;
   timestamp: number;
-  type: 'SPIKE' | 'DROP' | 'HIGH_VOLATILITY';
+  type: "SPIKE" | "DROP" | "HIGH_VOLATILITY";
   message: string;
-  severity: 'low' | 'medium' | 'high';
+  severity: "low" | "medium" | "high";
 }
 
 export enum ConnectionStatus {
-  DISCONNECTED = 'DISCONNECTED',
-  CONNECTING = 'CONNECTING',
-  CONNECTED = 'CONNECTED',
-  ERROR = 'ERROR'
+  DISCONNECTED = "DISCONNECTED",
+  CONNECTING = "CONNECTING",
+  CONNECTED = "CONNECTED",
+  ERROR = "ERROR",
 }
 
 export interface SearchResult {

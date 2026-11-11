@@ -1,45 +1,65 @@
-import React from 'react';
-import { VolatilityAlert } from '../types';
+import { formatClock } from "../lib/format";
+import type { VolatilityAlert } from "../types";
 
 interface AlertLogProps {
   alerts: VolatilityAlert[];
+  pricesSeen: number;
+  thresholdPercent: number;
 }
 
-export const AlertLog: React.FC<AlertLogProps> = ({ alerts }) => {
+export function AlertLog({ alerts, pricesSeen, thresholdPercent }: AlertLogProps) {
+  const newestFirst = [...alerts].reverse();
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 h-full flex flex-col">
-      <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-white">Live Alerts</h3>
-        <span className="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded-full border border-red-700">
-          Volatility Monitor Active
-        </span>
+    <section className="flex h-full flex-col rounded-3xl border border-line bg-card shadow-[0_16px_36px_-24px_rgba(80,48,20,0.45)]" aria-labelledby="notes-heading">
+      <div className="border-b border-line px-5 py-4">
+        <h2 id="notes-heading" className="font-display text-2xl text-ink">
+          Notes
+        </h2>
+        <p className="mt-1 text-sm leading-relaxed text-muted">
+          A note appears when the price is more than {thresholdPercent.toFixed(1)}% away from the 20-price average. The same move will not be repeated for 5 seconds.
+        </p>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {alerts.length === 0 ? (
-          <div className="text-center text-gray-500 mt-10 text-sm">No recent anomalies detected.</div>
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {newestFirst.length === 0 ? (
+          <div className="rounded-2xl bg-paper px-4 py-5" role="status">
+            <p className="font-bold text-ink">The tape is calm.</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
+              {pricesSeen < 20
+                ? `The average needs 20 prices before it can be compared. ${20 - pricesSeen} to go.`
+                : "Nothing has wandered far enough from the average to mention. Lower the gap if you would like a closer watch."}
+            </p>
+          </div>
         ) : (
-          alerts.slice().reverse().map((alert) => (
-            <div 
-              key={alert.id} 
-              className={`p-3 rounded-lg border-l-4 ${
-                alert.severity === 'high' ? 'border-red-500 bg-red-900/20' : 'border-yellow-500 bg-yellow-900/10'
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <span className={`text-xs font-bold uppercase ${
-                  alert.severity === 'high' ? 'text-red-400' : 'text-yellow-400'
-                }`}>
-                  {alert.type}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {new Date(alert.timestamp).toLocaleTimeString()}
-                </span>
-              </div>
-              <p className="text-gray-300 text-sm mt-1">{alert.message}</p>
-            </div>
-          ))
+          <ul className="space-y-3">
+            {newestFirst.map((alert) => {
+              const large = alert.severity === "high";
+              const up = alert.type === "SPIKE";
+              return (
+                <li
+                  key={alert.id}
+                  className={`rounded-2xl border px-4 py-3 ${
+                    up ? "border-gain/30 bg-gain-soft" : "border-loss/30 bg-loss-soft"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className={`text-sm font-bold ${up ? "text-gain" : "text-loss"}`}>
+                      {up ? "Above the average" : "Below the average"}
+                      <span className="sr-only">, {large ? "large gap" : "notable gap"}</span>
+                    </p>
+                    <p className={`rounded-full px-2 py-0.5 text-xs font-bold ${large ? "bg-card text-ink" : "bg-card/70 text-muted"}`}>
+                      {large ? "Large gap" : "Notable"}
+                    </p>
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-ink">{alert.message}</p>
+                  <p className="mt-1 text-xs text-muted">
+                    <time dateTime={new Date(alert.timestamp).toISOString()}>{formatClock(alert.timestamp)}</time>
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
-    </div>
+    </section>
   );
-};
+}
