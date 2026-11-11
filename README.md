@@ -4,6 +4,8 @@ A calm place to watch a **simulated** stock tape. Prices are invented in the bro
 
 This is a portfolio project. It is not a brokerage, a data vendor, or investment advice.
 
+**Live demo:** [equiflow.kfairley9999.workers.dev](https://equiflow.kfairley9999.workers.dev). The simulated tape, the SMA-20, and the notes work right away. The optional Grok read says it needs a server key until `XAI_API_KEY` is set on the Worker.
+
 ![EquiFlow on a desktop, showing Apple’s simulated tape, the SMA-20, and a note that prices are generated in the browser.](docs/screenshots/desktop.png)
 
 ![EquiFlow on a phone, with the sample-price banner, search, and price cards stacked.](docs/screenshots/phone.png)
